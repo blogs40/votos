@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculadora de concejales</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+/* Layout: marcador del pleno fijo arriba; controles en 2x2; mayorias, tabla D'Hondt y base legal debajo */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#14202c; --muted:#556475; --line:#d5dce3; --soft:#f4f6f8;
+  --pp:#2a78d6; --bng:#1baf7a; --nos:#eda100; --alt:#4a3aa7; --warn:#8a4b00; --warnbg:#fff1d6;
+  --display:"Archivo","Arial Narrow",sans-serif; --body:"Source Sans 3",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f151c; --surface:#18212b; --ink:#e8eef4; --muted:#9fadbc; --line:#2d3a48; --soft:#202b37;
+  --pp:#3987e5; --bng:#199e70; --nos:#c98500; --alt:#b04bb5; --warn:#ffd28a; --warnbg:#3a2a0c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f151c; --surface:#18212b; --ink:#e8eef4; --muted:#9fadbc; --line:#2d3a48; --soft:#202b37;
+  --pp:#3987e5; --bng:#199e70; --nos:#c98500; --alt:#b04bb5; --warn:#ffd28a; --warnbg:#3a2a0c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:880px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+h1{font-size:1.9rem;font-weight:800;font-stretch:80%;line-height:1.1}
+h2{font-size:1.15rem;font-weight:700;font-stretch:85%}
+p{margin:0}
+.muted{color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.pleno{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;box-shadow:0 6px 14px -10px rgba(0,0,0,.45)}
+.seats{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:3px}
+.seat{text-align:center;font:700 .72rem var(--display);font-stretch:75%;min-width:0}
+.seat i{display:block;height:30px;border-radius:12px 12px 3px 3px;background:var(--c,var(--soft));margin-bottom:2px}
+.seat.maj{position:relative}
+.seat.maj::after{content:"";position:absolute;right:-3px;top:-4px;bottom:-2px;width:2px;background:var(--ink)}
+.seat.lot i{background:var(--soft);border:2px dashed var(--muted)}
+.score{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+.score div{display:flex;align-items:baseline;justify-content:center;gap:6px;font-weight:600}
+.score b{font:800 1.7rem/1 var(--display)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);flex:none}
+#verdict{text-align:center;font-weight:700;margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.party .head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.party h3{font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.big{font:800 2.4rem/1 var(--display);text-align:right}
+.big small{display:block;font:600 .8rem var(--body);color:var(--muted)}
+.ctl{display:flex;gap:6px;margin-top:6px;align-items:center}
+button{font:700 1rem var(--body);background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:6px;min-width:40px;height:40px;cursor:pointer;padding:0 12px}
+button:hover{border-color:var(--muted)}
+input[type=number]{width:100%;max-width:110px;height:40px;font:700 1.25rem var(--body);text-align:center;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;margin:4px 0 0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;margin-top:-8px;border-radius:50%;background:var(--c);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--muted)}
+input[type=range]::-moz-range-track{height:8px;border-radius:4px;background:var(--line)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--c);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--muted)}
+:focus-visible{outline:3px solid var(--pp);outline-offset:2px}
+.facts{border-top:1px solid var(--line);padding-top:8px;margin-top:4px;font-size:.95rem}
+.out{background:var(--warnbg);color:var(--warn);border-radius:6px;padding:2px 8px;font-weight:700;display:inline-block}
+.blank{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center}
+.blank input[type=range]{grid-column:1/-1;--c:var(--muted)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+#warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;font-weight:700}
+ul{margin:8px 0 0;padding-left:20px}
+li{margin-bottom:4px}
+.scroll{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th .dot{margin-right:5px}
+td.win{background:var(--soft);font-weight:700;box-shadow:inset 0 -3px 0 var(--c)}
+td.win sup{font-size:.72rem;margin-left:4px;color:var(--muted)}
+td.off{color:var(--muted)}
+a{color:var(--ink)}
+.legal{font-size:.92rem}
+@media (max-width:620px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .score div{flex-direction:column;align-items:center;gap:0;font-size:.85rem}
+  .seat i{height:22px}
+  th,td{padding:5px}
+}
+@media (max-height:520px){.pleno{position:static}}
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <header>
+    <h1>Calculadora de concejales</h1>
+    <p class="muted">Elecciones municipales. Reparto D'Hondt de 11 concejales (municipio de 2.001 a 5.000 habitantes). Mayoría absoluta: 6.</p>
+  </header>
+
+  <section class="panel pleno" aria-label="Reparto del pleno">
+    <div class="seats" id="seats"></div>
+    <div class="score" id="score"></div>
+    <p id="verdict" aria-live="polite"></p>
+  </section>
+
+  <p id="warn" hidden></p>
+
+  <p class="muted">Mueve el deslizador, escribe la cifra o ajusta voto a voto. Los márgenes de cada tarjeta suponen que las demás cifras no cambian.</p>
+
+  <section class="grid" id="parties" aria-label="Votos por candidatura"></section>
+
+  <section class="panel">
+    <div class="blank">
+      <label for="n-blank"><b>Votos en blanco</b> <span class="muted">(cuentan para el umbral del 5 %)</span></label>
+      <input type="number" id="n-blank" min="0" step="1" inputmode="numeric">
+      <input type="range" id="r-blank" min="0" max="500" step="1" aria-label="Votos en blanco">
+    </div>
+    <div class="bar facts">
+      <p id="totals"></p>
+      <button type="button" id="reset">Volver al resultado inicial</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Mayorías y alcaldía</h2>
+    <div id="majority"></div>
+  </section>
+
+  <section class="panel">
+    <h2>El último concejal</h2>
+    <p id="last" style="margin-top:6px"></p>
+  </section>
+
+  <section class="panel">
+    <h2>Tabla de cocientes D'Hondt</h2>
+    <p class="muted">Las casillas marcadas obtienen concejal. El número pequeño indica el orden de asignación.</p>
+    <div class="scroll"><table id="table"></table></div>
+  </section>
+
+  <section class="panel legal">
+    <h2>Reglas aplicadas</h2>
+    <ul>
+      <li>Número de concejales según población: art. 179 LOREG.</li>
+      <li>Quedan fuera las candidaturas con menos del 5 % de los votos válidos (votos a candidaturas más votos en blanco). Los votos nulos no se computan: art. 180 LOREG.</li>
+      <li>Cocientes entre 1, 2, 3... Si dos cocientes coinciden, gana la candidatura con más votos totales; si también empatan en votos, decide un sorteo y los empates siguientes se alternan: arts. 163.1 y 180 LOREG.</li>
+      <li>Alcaldía: art. 196 LOREG.</li>
+    </ul>
+    <p style="margin-top:8px">Texto: <a href="https://www.boe.es/buscar/act.php?id=BOE-A-1985-11672">LO 5/1985, texto consolidado en el BOE</a>. Consultado el 25/11/2026. Herramienta de simulación: el resultado oficial es el que proclama la Junta Electoral.</p>
+  </section>
+</main>
+
+<script id="logic">
+const SEATS = 11, MAJORITY = 6;
+function allocate(votes, blank){
+  const valid = votes.reduce((a,b)=>a+b,0) + blank;
+  const eligible = votes.map(v => v > 0 && v * 20 >= valid);
+  const q = [];
+  votes.forEach((v,i)=>{ if(eligible[i]) for(let d=1; d<=SEATS; d++) q.push({i,d,v}); });
+  // Comparacion exacta de cocientes (producto cruzado); desempate por votos totales
+  q.sort((a,b)=> (b.v*a.d - a.v*b.d) || (b.v - a.v) || (a.i - b.i));
+  const win = q.slice(0, SEATS), seats = votes.map(()=>0);
+  const tie = (a,b)=> a && b && a.v === b.v && a.d === b.d;
+  const lot = tie(q[SEATS-1], q[SEATS]) ? win.filter(x => tie(x, q[SEATS-1])) : [];
+  win.forEach(x => { if(!lot.includes(x)) seats[x.i]++; });
+  const lotParties = lot.length ? [...new Set(q.filter(x => tie(x, q[SEATS-1])).map(x=>x.i))] : [];
+  return {valid, eligible, q, win, seats, lot, lotParties};
+}
+// Menor variacion de votos (dir = +1 o -1) que cambia los concejales de i, con el resto fijo
+function margin(votes, blank, i, dir){
+  const now = allocate(votes, blank).seats[i];
+  if(dir > 0 ? now >= SEATS : now === 0) return null;
+  const changes = k => { const v = votes.slice(); v[i] += dir*k; const s = allocate(v, blank).seats[i]; return dir > 0 ? s > now : s < now; };
+  let lo = 1, hi = dir > 0 ? 1 : votes[i];
+  if(dir > 0){ while(!changes(hi)){ hi *= 2; if(hi > 1e8) return null; } }
+  while(lo < hi){ const m = Math.floor((lo+hi)/2); if(changes(m)) hi = m; else lo = m+1; }
+  return lo;
+}
+</script>
+
+<script>
+const P = [
+  {key:"pp",  name:"PP",          short:"PP",  start:878},
+  {key:"bng", name:"BNG",         short:"BNG", start:1319},
+  {key:"nos", name:"NOS",         short:"NOS", start:108},
+  {key:"alt", name:"ALTERNATIVA", short:"ALT", start:339}
+];
+const START_BLANK = 0, BASE_MAX = 3000;
+let votes = P.map(p=>p.start), blank = START_BLANK;
+const initial = allocate(votes, blank).seats;
+const $ = id => document.getElementById(id);
+const num = n => n.toLocaleString("es-ES");
+const dec = n => n.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2});
+const color = i => `style="--c:var(--${P[i].key})"`;
+const dot = i => `<span class="dot" ${color(i)}></span>`;
+const list = a => a.length > 1 ? a.slice(0,-1).join(", ") + " y " + a[a.length-1] : a[0];
+const councillors = n => n === 1 ? "concejal" : "concejales";
+
+$("parties").innerHTML = P.map((p,i)=>`
+  <article class="panel party" ${color(i)}>
+    <div class="head">
+      <div><h3>${dot(i)}${p.name}</h3><p class="muted" id="pct-${i}"></p></div>
+      <p class="big"><span id="s-${i}"></span><small id="d-${i}"></small></p>
+    </div>
+    <div class="ctl">
+      <button type="button" data-i="${i}" data-step="-1" aria-label="Restar un voto a ${p.name}">&minus;1</button>
+      <input type="number" id="n-${i}" min="0" step="1" inputmode="numeric" aria-label="Votos de ${p.name}">
+      <button type="button" data-i="${i}" data-step="1" aria-label="Sumar un voto a ${p.name}">+1</button>
+      <span class="muted">votos</span>
+    </div>
+    <input type="range" id="r-${i}" min="0" max="${BASE_MAX}" step="1" aria-label="Deslizador de votos de ${p.name}">
+    <div class="facts" id="m-${i}"></div>
+  </article>`).join("");
+
+function sync(id, value){
+  const n = $("n-"+id), r = $("r-"+id);
+  if(document.activeElement !== n) n.value = value;
+  if(value > +r.max) r.max = Math.ceil(value/500)*500;
+  r.value = value;
+}
+
+function render(){
+  const res = allocate(votes, blank), s = res.seats;
+  const order = P.map((_,i)=>i).sort((a,b)=> s[b]-s[a] || votes[b]-votes[a]);
+  const chairs = [];
+  order.forEach(i => { for(let k=0;k<s[i];k++) chairs.push(i); });
+  $("seats").innerHTML = Array.from({length:SEATS},(_,k)=>{
+    const i = chairs[k], lot = i === undefined && res.lot.length;
+    return `<div class="seat${k===MAJORITY-1?" maj":""}${lot?" lot":""}" ${i===undefined?"":color(i)}><i></i>${i===undefined?(lot?"?":"-"):P[i].short}</div>`;
+  }).join("");
+  $("score").innerHTML = P.map((p,i)=>`<div>${dot(i)}<span>${p.short}</span><b>${s[i]}</b></div>`).join("");
+
+  const top = P.findIndex((_,i)=>s[i] >= MAJORITY);
+  let verdict = top >= 0 ? `${P[top].name}: mayoría absoluta (${s[top]} de ${SEATS})` : "Nadie tiene mayoría absoluta";
+  if(res.lot.length) verdict += `. ${res.lot.length} ${councillors(res.lot.length)} a sorteo`;
+  if(!res.q.length) verdict = "Ninguna candidatura alcanza el umbral";
+  $("verdict").textContent = verdict;
+
+  P.forEach((p,i)=>{
+    sync(i, votes[i]);
+    $("s-"+i).textContent = s[i];
+    const diff = s[i]-initial[i];
+    $("d-"+i).textContent = diff ? `${diff>0?"+":"−"}${Math.abs(diff)} vs. inicio` : "igual que al inicio";
+    const pct = res.valid ? votes[i]*100/res.valid : 0;
+    $("pct-"+i).textContent = `${dec(pct)} % del voto válido`;
+    const up = margin(votes, blank, i, 1), down = margin(votes, blank, i, -1);
+    let html = "";
+    if(!res.eligible[i]){
+      // Votos propios necesarios para llegar al 5 %: 20(v+k) >= validos+k
+      const need = Math.max(1, Math.ceil((res.valid - 20*votes[i]) / 19));
+      html += `<p><span class="out">Fuera del reparto</span> Alcanza el 5 % con ${num(need)} votos más.</p>`;
+    }
+    if(up !== null) html += `<p>Gana 1 concejal con <b>+${num(up)}</b> votos (llegando a ${num(votes[i]+up)}).</p>`;
+    if(down !== null) html += `<p>Pierde 1 concejal con <b>−${num(down)}</b> votos (bajando a ${num(votes[i]-down)}).</p>`;
+    $("m-"+i).innerHTML = html;
+  });
+  sync("blank", blank);
+
+  const cand = res.valid - blank;
+  $("totals").innerHTML = `A candidaturas: <b>${num(cand)}</b> · Válidos: <b>${num(res.valid)}</b> · Umbral 5 %: <b>${num(Math.ceil(res.valid/20))}</b> votos`;
+  $("warn").hidden = res.valid <= 5000;
+  $("warn").textContent = `Hay ${num(res.valid)} votos válidos, más que habitantes en un municipio de hasta 5.000. Revisa las cifras.`;
+
+  // Coaliciones minimas ganadoras
+  const withSeats = order.filter(i=>s[i]>0), combos = [];
+  for(let m=1; m < (1<<withSeats.length); m++){
+    const g = withSeats.filter((_,k)=>m & (1<<k)), t = g.reduce((a,i)=>a+s[i],0);
+    if(t >= MAJORITY && g.every(i => t - s[i] < MAJORITY)) combos.push({g,t});
+  }
+  combos.sort((a,b)=>a.g.length-b.g.length || b.t-a.t);
+  const maxV = Math.max(...votes), first = P.filter((_,i)=>votes[i]===maxV).map(p=>p.name);
+  const head = first.length > 1
+    ? `se sortea entre las cabezas de lista de ${list(first)}, empatadas como más votadas`
+    : `es alcalde quien encabeza la lista más votada, ${first[0]}`;
+  let html;
+  if(top >= 0){
+    html = `<p style="margin-top:6px">${P[top].name} puede elegir alcalde por sí solo con ${s[top]} concejales.</p>`;
+  } else if(!res.q.length){
+    html = `<p style="margin-top:6px">No hay concejales que repartir con estas cifras.</p>`;
+  } else {
+    html = (combos.length ? `<p style="margin-top:6px">Combinaciones que suman 6 o más sin socios sobrantes (aritmética, no previsión de pactos):</p><ul>${combos.map(c=>`<li><b>${c.g.map(i=>`${P[i].name} (${s[i]})`).join(" + ")}</b> = ${c.t}</li>`).join("")}</ul>` : `<p style="margin-top:6px">Ninguna combinación alcanza 6 con los concejales ya asignados.</p>`)
+      + `<p style="margin-top:6px">Si ningún candidato logra 6 votos en la investidura, ${head}.</p>`;
+    if(res.lot.length) html += `<p class="muted">Quedan concejales pendientes de sorteo.</p>`;
+  }
+  $("majority").innerHTML = html;
+
+  const last = res.win[SEATS-1], next = res.q[SEATS];
+  if(!last) $("last").textContent = "No hay reparto.";
+  else if(res.lot.length) $("last").innerHTML = `Empate exacto en cociente y votos entre <b>${list(res.lotParties.map(i=>P[i].name))}</b>. ${res.lot.length === 1 ? "Un concejal se decide" : res.lot.length + " concejales se deciden"} por sorteo.`;
+  else $("last").innerHTML = `El concejal nº 11 es para <b>${P[last.i].name}</b> con un cociente de ${dec(last.v/last.d)}.` + (next ? ` El primero que se queda fuera es <b>${P[next.i].name}</b> con ${dec(next.v/next.d)}.` : "");
+
+  const rows = Math.min(SEATS, Math.max(3, ...P.map((_,i)=> res.win.filter(x=>x.i===i).length + 1)));
+  let t = `<thead><tr><th scope="col">Divisor</th>${P.map((p,i)=>`<th scope="col">${dot(i)}${p.short}</th>`).join("")}</tr></thead><tbody>`;
+  for(let d=1; d<=rows; d++){
+    t += `<tr><td>÷ ${d}</td>` + P.map((p,i)=>{
+      const k = res.win.findIndex(x=>x.i===i && x.d===d);
+      const isLot = res.lot.length && res.lot.some(x=>x.d===d) && res.lotParties.includes(i);
+      if(!res.eligible[i]) return `<td class="off">${dec(votes[i]/d)}</td>`;
+      if(isLot) return `<td>${dec(votes[i]/d)} <sup>sorteo</sup></td>`;
+      return k >= 0 ? `<td class="win" ${color(i)}>${dec(votes[i]/d)}<sup>${k+1}</sup></td>` : `<td>${dec(votes[i]/d)}</td>`;
+    }).join("") + "</tr>";
+  }
+  const off = P.filter((_,i)=>!res.eligible[i]).map(p=>p.name);
+  $("table").innerHTML = t + "</tbody>" + (off.length ? `<caption class="muted" style="caption-side:bottom;text-align:left;padding-top:6px">En gris, sin derecho a reparto: ${list(off)}.</caption>` : "");
+}
+
+const clean = x => Math.min(99999, Math.max(0, Math.round(+x || 0)));
+function set(id, value){ if(id === "blank") blank = value; else votes[+id] = value; render(); }
+[0,1,2,3,"blank"].forEach(id=>{
+  $("r-"+id).addEventListener("input", e => set(String(id), clean(e.target.value)));
+  $("n-"+id).addEventListener("input", e => { if(e.target.value !== "") set(String(id), clean(e.target.value)); });
+  $("n-"+id).addEventListener("blur", e => { e.target.value = id === "blank" ? blank : votes[id]; });
+});
+$("parties").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-step]");
+  if(b) set(b.dataset.i, clean(votes[+b.dataset.i] + +b.dataset.step));
+});
+$("reset").addEventListener("click", ()=>{
+  votes = P.map(p=>p.start); blank = START_BLANK;
+  [0,1,2,3].forEach(i=>$("r-"+i).max = BASE_MAX);
+  $("r-blank").max = 500;
+  render();
+});
+render();
+</script>
+</body>
+</html>
